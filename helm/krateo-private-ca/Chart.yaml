@@ -2,8 +2,10 @@ apiVersion: v2
 name: krateo-private-ca
 description: >-
   A private certificate authority for in-cluster TLS: a cert-manager ClusterIssuer backed by a
-  self-signed CA, approver-policy so that issuer signs ONLY the names each service is allowed, and
-  trust-manager publishing the CA certificate into the namespaces that must trust it.
+  self-signed CA, approver-policy policies so that issuer signs ONLY the names each service is
+  allowed, and a trust-manager Bundle publishing the CA certificate into the namespaces that must
+  trust it. Requires cert-manager (auto-approval disabled), approver-policy and trust-manager to be
+  installed first (see README).
 type: application
 version: CHART_VERSION
 appVersion: "1.0.0"
@@ -19,14 +21,3 @@ keywords:
   - private-ca
 maintainers:
   - name: krateo
-dependencies:
-  - name: cert-manager-approver-policy
-    version: v0.29.0
-    repository: https://charts.jetstack.io
-    alias: approverPolicy
-    condition: install.approverPolicy
-  - name: trust-manager
-    version: v0.26.0
-    repository: https://charts.jetstack.io
-    alias: trustManager
-    condition: install.trustManager

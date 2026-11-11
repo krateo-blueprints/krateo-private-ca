@@ -102,7 +102,7 @@
     },
     "maxDuration": {
       "type": "string",
-      "pattern": "^[0-9]+h$"
+      "pattern": "^([0-9]+h)?$"
     },
     "bundle": {
       "type": "object",
@@ -127,16 +127,10 @@
         }
       }
     },
-    "install": {
-      "type": "object",
-      "properties": {
-        "approverPolicy": {
-          "type": "boolean"
-        },
-        "trustManager": {
-          "type": "boolean"
-        }
-      }
+    "trustNamespace": {
+      "description": "trust-manager's app.trust.namespace; must equal the release namespace.",
+      "type": "string",
+      "minLength": 1
     }
   }
 }

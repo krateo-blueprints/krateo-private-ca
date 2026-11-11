@@ -7,8 +7,8 @@ helm.sh/chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
 
 {{- /* The layout every object here depends on; refuse to render anything else. */ -}}
 {{- define "krateo-private-ca.checkLayout" -}}
-{{- if and .Values.install.trustManager (ne .Values.trustManager.app.trust.namespace .Release.Namespace) -}}
-{{- fail (printf "trustManager.app.trust.namespace (%s) must equal the release namespace (%s): trust-manager reads the CA Secret from its trust namespace, and the ClusterIssuer reads it from cert-manager's cluster resource namespace, so all three must be the same namespace" .Values.trustManager.app.trust.namespace .Release.Namespace) -}}
+{{- if ne .Values.trustNamespace .Release.Namespace -}}
+{{- fail (printf "trustNamespace (%s) must equal the release namespace (%s): trust-manager reads the CA Secret from its trust namespace, and the ClusterIssuer reads it from cert-manager's cluster resource namespace, so all three must be the same namespace" .Values.trustNamespace .Release.Namespace) -}}
 {{- end -}}
 {{- range .Values.issuance -}}
 {{- if or (not .name) (not .namespaces) (not .dnsNames) -}}

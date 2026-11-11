@@ -1,8 +1,13 @@
 # krateo-private-ca
 #
-# REQUIRED OF THE CLUSTER: cert-manager with its built-in auto-approver DISABLED. With the
-# cert-manager chart (v1.21.x) that is the value `disableAutoApproval: true`. Without it every
-# CertificateRequest is approved by cert-manager itself and the policies below constrain nothing.
+# REQUIRED OF THE CLUSTER, installed BEFORE this chart (this chart ships only custom resources, so
+# their CRDs must already exist; one release cannot carry both):
+#   1. cert-manager with its built-in auto-approver DISABLED (chart v1.21.x: `disableAutoApproval: true`).
+#      Without it every CertificateRequest is approved by cert-manager itself and the policies below
+#      constrain nothing.
+#   2. cert-manager-approver-policy (tested: v0.29.0).
+#   3. trust-manager (tested: v0.26.0) with `app.trust.namespace` = this release's namespace and
+#      `app.webhook.tls.approverPolicy.enabled: true` (its own webhook certificate needs approval too).
 #
 # INSTALL INTO cert-manager's cluster resource namespace (by default `cert-manager`): a ClusterIssuer
 # reads its CA Secret from that namespace, and trust-manager reads Bundle sources from its trust
@@ -42,8 +47,11 @@ certManager:
 #         - keycloak-service.keycloak-system.svc
 #         - keycloak-service.keycloak-system.svc.cluster.local
 issuance: []
-# Longest certificate lifetime any issuance policy approves.
-maxDuration: 2160h
+# Optional upper bound on the certificate lifetime the issuance policies approve, e.g. 2160h. Empty =
+# no bound. When set, approver-policy DENIES any request that does not state a duration, so every
+# consumer's Certificate must then set `spec.duration` (at most this value): measured, a Certificate
+# without one is refused with `spec.constraints.maxDuration: Invalid value: "nil"`.
+maxDuration: ""
 
 # Publication of the CA certificate. trust-manager writes it as a ConfigMap named `bundle.name`,
 # key `bundle.key`, into every namespace in `bundle.namespaces` (namespaces created later included).
@@ -53,23 +61,6 @@ bundle:
   key: ca.crt
   namespaces: []
 
-# Whether this release installs each dependency. Turn one off only when the cluster already runs it
-# (configured as below); their own values go under approverPolicy / trustManager.
-install:
-  approverPolicy: true
-  trustManager: true
-
-# Dependency values. The settings below are the ones this chart relies on and must not be changed.
-approverPolicy: {}
-trustManager:
-  app:
-    trust:
-      # MUST equal the release namespace (checked at render).
-      namespace: cert-manager
-    webhook:
-      tls:
-        # trust-manager's own webhook certificate also needs approval once the built-in approver is off.
-        approverPolicy:
-          enabled: true
-          certManagerNamespace: cert-manager
-          certManagerServiceAccount: cert-manager
+# The namespace trust-manager reads Bundle sources from (its `app.trust.namespace`). MUST equal the
+# release namespace, which must also be cert-manager's cluster resource namespace (checked at render).
+trustNamespace: cert-manager
