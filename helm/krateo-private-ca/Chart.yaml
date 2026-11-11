@@ -1,0 +1,32 @@
+apiVersion: v2
+name: krateo-private-ca
+description: >-
+  A private certificate authority for in-cluster TLS: a cert-manager ClusterIssuer backed by a
+  self-signed CA, approver-policy so that issuer signs ONLY the names each service is allowed, and
+  trust-manager publishing the CA certificate into the namespaces that must trust it.
+type: application
+version: CHART_VERSION
+appVersion: "1.0.0"
+home: https://github.com/krateo-blueprints/krateo-private-ca
+# Helm's `sources` is the source code of THIS chart; release tooling resolves the chart version as a
+# tag in each listed repository, so only this repository belongs here.
+sources:
+  - https://github.com/krateo-blueprints/krateo-private-ca
+keywords:
+  - cert-manager
+  - approver-policy
+  - trust-manager
+  - private-ca
+maintainers:
+  - name: krateo
+dependencies:
+  - name: cert-manager-approver-policy
+    version: v0.29.0
+    repository: https://charts.jetstack.io
+    alias: approverPolicy
+    condition: install.approverPolicy
+  - name: trust-manager
+    version: v0.26.0
+    repository: https://charts.jetstack.io
+    alias: trustManager
+    condition: install.trustManager

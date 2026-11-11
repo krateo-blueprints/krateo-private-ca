@@ -1,0 +1,70 @@
+{{- include "krateo-private-ca.checkLayout" . }}
+{{- range .Values.issuance }}
+{{- $policy := printf "%s-%s" $.Values.ca.name .name }}
+---
+# What the CA may sign for "{{ .name }}": only these exact DNS names, only from these namespaces,
+# only as a server leaf (never a CA), never longer than maxDuration. Anything else in a request
+# (another name, an IP, a URI, client auth, isCA) is denied.
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: {{ $policy }}
+  labels:
+    {{- include "krateo-private-ca.labels" $ | nindent 4 }}
+spec:
+  allowed:
+    isCA: false
+    commonName:
+      validations:
+        - rule: self in {{ toJson .dnsNames }}
+          message: the common name, if set, must be one of the allowed DNS names
+    dnsNames:
+      values:
+        {{- toYaml .dnsNames | nindent 8 }}
+      required: true
+    usages:
+      - digital signature
+      - key encipherment
+      - server auth
+  constraints:
+    maxDuration: {{ $.Values.maxDuration }}
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: ClusterIssuer
+      name: {{ $.Values.ca.name }}
+    namespace:
+      matchNames:
+        {{- toYaml .namespaces | nindent 8 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $policy }}-policy
+  labels:
+    {{- include "krateo-private-ca.labels" $ | nindent 4 }}
+rules:
+  - apiGroups:
+      - policy.cert-manager.io
+    resources:
+      - certificaterequestpolicies
+    verbs:
+      - use
+    resourceNames:
+      - {{ $policy }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $policy }}-policy
+  labels:
+    {{- include "krateo-private-ca.labels" $ | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $policy }}-policy
+subjects:
+  - kind: ServiceAccount
+    name: {{ $.Values.certManager.serviceAccount.name }}
+    namespace: {{ $.Values.certManager.serviceAccount.namespace }}
+{{- end }}

@@ -1,0 +1,25 @@
+{{- include "krateo-private-ca.checkLayout" . }}
+{{- if and .Values.bundle.enabled .Values.bundle.namespaces }}
+# The CA certificate (never the key) as ConfigMap `{{ .Values.bundle.name }}` / `{{ .Values.bundle.key }}`
+# in each listed namespace. trust-manager keeps it current: a renewed CA is republished in place.
+apiVersion: trust.cert-manager.io/v1alpha1
+kind: Bundle
+metadata:
+  name: {{ .Values.bundle.name }}
+  labels:
+    {{- include "krateo-private-ca.labels" . | nindent 4 }}
+spec:
+  sources:
+    - secret:
+        name: {{ .Values.ca.name }}
+        key: tls.crt
+  target:
+    configMap:
+      key: {{ .Values.bundle.key }}
+    namespaceSelector:
+      matchExpressions:
+        - key: kubernetes.io/metadata.name
+          operator: In
+          values:
+            {{- toYaml .Values.bundle.namespaces | nindent 12 }}
+{{- end }}

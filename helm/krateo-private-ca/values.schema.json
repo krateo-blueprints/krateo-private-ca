@@ -1,0 +1,142 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "krateo-private-ca values",
+  "type": "object",
+  "properties": {
+    "global": {
+      "description": "Injected by Krateo's chart-inspector at install time.",
+      "type": "object"
+    },
+    "ca": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the ClusterIssuer, the CA Certificate and its Secret.",
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "maxLength": 52
+        },
+        "commonName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "duration": {
+          "type": "string",
+          "pattern": "^[0-9]+h$"
+        },
+        "renewBefore": {
+          "type": "string",
+          "pattern": "^[0-9]+h$"
+        },
+        "privateKey": {
+          "type": "object",
+          "properties": {
+            "algorithm": {
+              "type": "string",
+              "enum": [
+                "ECDSA",
+                "RSA",
+                "Ed25519"
+              ]
+            },
+            "size": {
+              "type": "integer",
+              "minimum": 256
+            }
+          }
+        }
+      }
+    },
+    "certManager": {
+      "type": "object",
+      "properties": {
+        "serviceAccount": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "namespace": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    },
+    "issuance": {
+      "description": "What the CA may sign: one CertificateRequestPolicy per entry.",
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name",
+          "namespaces",
+          "dnsNames"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$"
+          },
+          "namespaces": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "dnsNames": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+            }
+          }
+        }
+      }
+    },
+    "maxDuration": {
+      "type": "string",
+      "pattern": "^[0-9]+h$"
+    },
+    "bundle": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        },
+        "namespaces": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "install": {
+      "type": "object",
+      "properties": {
+        "approverPolicy": {
+          "type": "boolean"
+        },
+        "trustManager": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}

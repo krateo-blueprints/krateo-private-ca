@@ -1,0 +1,75 @@
+# krateo-private-ca
+#
+# REQUIRED OF THE CLUSTER: cert-manager with its built-in auto-approver DISABLED. With the
+# cert-manager chart (v1.21.x) that is the value `disableAutoApproval: true`. Without it every
+# CertificateRequest is approved by cert-manager itself and the policies below constrain nothing.
+#
+# INSTALL INTO cert-manager's cluster resource namespace (by default `cert-manager`): a ClusterIssuer
+# reads its CA Secret from that namespace, and trust-manager reads Bundle sources from its trust
+# namespace, which this chart pins to the release namespace. The render refuses any other layout.
+
+# The CA itself: a self-signed root, issued once, kept for its whole life.
+ca:
+  # Name of the ClusterIssuer that signs service certificates, of the CA Certificate and of its Secret.
+  name: krateo-private-ca
+  commonName: Krateo Private CA
+  # 10 years. The private key is never rotated on renewal (rotationPolicy Never), so renewing the CA
+  # keeps the same public key and every published trust bundle stays valid.
+  duration: 87600h
+  renewBefore: 720h
+  privateKey:
+    algorithm: ECDSA
+    size: 256
+
+# cert-manager's controller ServiceAccount: it is the requester of every CertificateRequest created
+# from a Certificate, so the policies below are granted to it ("use" on each policy).
+certManager:
+  serviceAccount:
+    name: cert-manager
+    namespace: cert-manager
+
+# What the CA may sign. Each entry becomes one CertificateRequestPolicy that approves a request ONLY
+# when it comes from one of `namespaces`, references this CA's ClusterIssuer, and asks for nothing
+# beyond `dnsNames` (exact names) with server-auth usages. Empty by default: a fresh install signs
+# nothing until a consumer declares what it needs.
+#
+# Example (the Keycloak service of the keycloak blueprint):
+#   issuance:
+#     - name: keycloak
+#       namespaces:
+#         - keycloak-system
+#       dnsNames:
+#         - keycloak-service.keycloak-system.svc
+#         - keycloak-service.keycloak-system.svc.cluster.local
+issuance: []
+# Longest certificate lifetime any issuance policy approves.
+maxDuration: 2160h
+
+# Publication of the CA certificate. trust-manager writes it as a ConfigMap named `bundle.name`,
+# key `bundle.key`, into every namespace in `bundle.namespaces` (namespaces created later included).
+bundle:
+  enabled: true
+  name: krateo-private-ca
+  key: ca.crt
+  namespaces: []
+
+# Whether this release installs each dependency. Turn one off only when the cluster already runs it
+# (configured as below); their own values go under approverPolicy / trustManager.
+install:
+  approverPolicy: true
+  trustManager: true
+
+# Dependency values. The settings below are the ones this chart relies on and must not be changed.
+approverPolicy: {}
+trustManager:
+  app:
+    trust:
+      # MUST equal the release namespace (checked at render).
+      namespace: cert-manager
+    webhook:
+      tls:
+        # trust-manager's own webhook certificate also needs approval once the built-in approver is off.
+        approverPolicy:
+          enabled: true
+          certManagerNamespace: cert-manager
+          certManagerServiceAccount: cert-manager

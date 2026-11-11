@@ -1,0 +1,105 @@
+{{- include "krateo-private-ca.checkLayout" . }}
+{{- $ns := .Release.Namespace }}
+{{- $bootstrap := printf "%s-bootstrap" .Values.ca.name }}
+# The root: a namespaced self-signed Issuer signs exactly one certificate, the CA's own.
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: {{ $bootstrap }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "krateo-private-ca.labels" . | nindent 4 }}
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: {{ .Values.ca.name }}
+  namespace: {{ $ns }}
+  labels:
+    {{- include "krateo-private-ca.labels" . | nindent 4 }}
+spec:
+  isCA: true
+  commonName: {{ .Values.ca.commonName | quote }}
+  secretName: {{ .Values.ca.name }}
+  duration: {{ .Values.ca.duration }}
+  renewBefore: {{ .Values.ca.renewBefore }}
+  privateKey:
+    algorithm: {{ .Values.ca.privateKey.algorithm }}
+    size: {{ .Values.ca.privateKey.size }}
+    # Renewal keeps the key, so the CA's public key (what every trust bundle pins) never changes.
+    rotationPolicy: Never
+  issuerRef:
+    group: cert-manager.io
+    kind: Issuer
+    name: {{ $bootstrap }}
+---
+# The issuer every service certificate references.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: {{ .Values.ca.name }}
+  labels:
+    {{- include "krateo-private-ca.labels" . | nindent 4 }}
+spec:
+  ca:
+    secretName: {{ .Values.ca.name }}
+---
+# With the built-in approver off, even the CA's own request needs a policy: this one approves only
+# the CA certificate above, from the bootstrap Issuer, in this namespace.
+apiVersion: policy.cert-manager.io/v1alpha1
+kind: CertificateRequestPolicy
+metadata:
+  name: {{ $bootstrap }}
+  labels:
+    {{- include "krateo-private-ca.labels" . | nindent 4 }}
+spec:
+  allowed:
+    isCA: true
+    commonName:
+      value: {{ .Values.ca.commonName | quote }}
+      required: true
+    usages:
+      - digital signature
+      - key encipherment
+      - cert sign
+  selector:
+    issuerRef:
+      group: cert-manager.io
+      kind: Issuer
+      name: {{ $bootstrap }}
+    namespace:
+      matchNames:
+        - {{ $ns }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ $bootstrap }}-policy
+  labels:
+    {{- include "krateo-private-ca.labels" . | nindent 4 }}
+rules:
+  - apiGroups:
+      - policy.cert-manager.io
+    resources:
+      - certificaterequestpolicies
+    verbs:
+      - use
+    resourceNames:
+      - {{ $bootstrap }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ $bootstrap }}-policy
+  labels:
+    {{- include "krateo-private-ca.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ $bootstrap }}-policy
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.certManager.serviceAccount.name }}
+    namespace: {{ .Values.certManager.serviceAccount.namespace }}
