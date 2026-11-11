@@ -1,0 +1,67 @@
+name: lint
+
+# Lints and renders the chart on pull requests and on every commit that reaches main, so release-tag
+# can refuse a tag on a commit that never passed lint (krateo-blueprints/charts PUBLISHING.md rule 10).
+on:
+  pull_request:
+    paths:
+      - "**"
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  lint-docs:
+    uses: krateo-platformops/.github/.github/workflows/lint-docs.yaml@main
+
+  # Gating, and the check-run release consumers (installer's pin-ci) look for.
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+
+      - name: Chart gates
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pyyaml
+          python3 hack/check-schema-required.py
+          sed -i "s/CHART_VERSION/0.0.0-ci/g" helm/krateo-private-ca/Chart.yaml
+          # The layout guard must refuse a release namespace that is not the trust namespace.
+          if helm template r helm/krateo-private-ca -n not-cert-manager >/dev/null 2>&1; then
+            echo "::error::render in a namespace other than trustNamespace was NOT refused"; exit 1
+          fi
+          # An issuance entry without dnsNames must be refused by the schema.
+          if helm template r helm/krateo-private-ca -n cert-manager --set 'issuance[0].name=x' >/dev/null 2>&1; then
+            echo "::error::an issuance entry without namespaces/dnsNames was NOT refused"; exit 1
+          fi
+          helm template r helm/krateo-private-ca -n cert-manager -f examples/keycloak-openstack/values.yaml > rendered.yaml
+          python3 - <<'PY'
+          import yaml
+          d=[x for x in yaml.safe_load_all(open("rendered.yaml")) if x]
+          kinds=sorted({x["kind"] for x in d})
+          need={"Issuer","Certificate","ClusterIssuer","CertificateRequestPolicy","ClusterRole","ClusterRoleBinding","Bundle"}
+          missing=need-set(kinds)
+          assert not missing, f"missing kinds: {missing}"
+          print("renders", kinds)
+          PY
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Helm
+        uses: azure/setup-helm@v5
+
+      - name: helm lint (gating)
+        run: |
+          set -euo pipefail
+          sed -i "s/CHART_VERSION/0.0.0-ci/g" helm/krateo-private-ca/Chart.yaml
+          helm lint helm/krateo-private-ca -n cert-manager -f examples/keycloak-openstack/values.yaml
+          helm template r helm/krateo-private-ca -n cert-manager --set global.injected=true >/dev/null

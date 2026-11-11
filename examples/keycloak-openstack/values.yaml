@@ -1,0 +1,11 @@
+issuance:
+  - name: keycloak
+    namespaces:
+      - keycloak-system
+    dnsNames:
+      - keycloak-service.keycloak-system.svc
+      - keycloak-service.keycloak-system.svc.cluster.local
+bundle:
+  name: keycloak-ca
+  namespaces:
+    - openstack

@@ -1,0 +1,10 @@
+# krateo-private-ca — LLM doc index (pinned: 0.1.0)
+docs/index.md: the map of the bundle
+docs/overview.md: CA bootstrap, approval as the security boundary, the bundle
+docs/usage.md: install order, consuming the issuer, trusting the bundle, measured results
+docs/configuration.md: the values surface
+docs/api.md: the resources rendered
+docs/examples.md: index of examples
+docs/release.md: how a release ships
+docs/log.md: history
+examples/keycloak-openstack/README.md: Keycloak's serving certificate trusted by openstack
