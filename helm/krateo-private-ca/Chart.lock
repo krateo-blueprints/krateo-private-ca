@@ -1,0 +1,9 @@
+dependencies:
+- name: cert-manager-approver-policy
+  repository: https://charts.jetstack.io
+  version: v0.29.0
+- name: trust-manager
+  repository: https://charts.jetstack.io
+  version: v0.26.0
+digest: sha256:19c49d78f1f140350b2722511a428b7e01da3bc2d3d2c34236742c65c50658fb
+generated: "2026-11-11T13:27:01.671037+01:00"
