@@ -4,7 +4,7 @@ title: krateo-private-ca — usage
 description: Install cert-manager without auto-approval, approver-policy and trust-manager, then this chart; request a certificate from the issuer and trust the published bundle.
 resource: oci://ghcr.io/krateo-blueprints/charts/krateo-private-ca
 tags: [usage]
-timestamp: 2026-11-11T00:00:00Z
+timestamp: 2026-11-14T00:00:00Z
 ---
 
 # Usage
@@ -24,6 +24,28 @@ $ helm install private-ca oci://ghcr.io/krateo-blueprints/charts/krateo-private-
 One Helm release cannot carry a CRD and resources of its kind, so the dependencies are separate
 releases. trust-manager's own webhook certificate needs approval too, which its
 `app.webhook.tls.approverPolicy.enabled` provides.
+
+## A cluster whose cert-manager already approves automatically
+
+The issuance policies constrain nothing while cert-manager's built-in approver runs: it approves every
+`CertificateRequest`, for every issuer, before approver-policy is consulted. Check the controller's
+arguments, not the Helm values, because the flag is what governs:
+
+```console
+$ kubectl -n cert-manager get deploy cert-manager \
+    -o jsonpath='{.spec.template.spec.containers[0].args}'
+```
+
+`disableAutoApproval=true` renders `--controllers=-certificaterequests-approver` (cert-manager chart
+v1.21.3). No `--controllers` argument, or one that does not disable `certificaterequests-approver`,
+means auto-approval is **on** and this chart must not be installed yet.
+
+Turning auto-approval off on such a cluster is a staged change, not a toggle: from that moment only a
+`CertificateRequestPolicy` can approve, so the certificates it already renews (an ACME-issued portal
+certificate, for example) stall unless a policy covers their issuer first. The order is: install
+approver-policy, add a policy for **every** issuer already in use, confirm one renewal is approved by
+policy, then set `disableAutoApproval=true`, then install trust-manager and this chart. Rehearse it on
+a disposable copy with the same issuers first.
 
 ## Consuming
 
